@@ -7,10 +7,10 @@ namespace my {
     extern void PRINT(const value_t& value, std::ostream& out);
 }
 
-my::value_t fun(my::EnvPtr env)
+my::value_t hoge(my::EnvPtr args)
 {
-    my::value_t x = env->find_value("X");
-    my::value_t y = env->find_value("Y");
+    my::value_t x = args->find_value("X");
+    my::value_t y = args->find_value("Y");
 
     printf("callback!\n");
 
@@ -21,11 +21,7 @@ int main()
 {
     my::Environment env;
 
-    std::shared_ptr<my::cons> params = std::make_shared<my::cons>();
-    params->append(std::make_shared<my::symbol>("X"));
-    params->append(std::make_shared<my::symbol>("Y"));
-    my::FuncPtr fn = std::make_shared<my::function>("HOGE", params, fun);
-    env.set_function("HOGE", fn);
+    define_function("HOGE", "(x y)", hoge);
 
     // 呼び出し
     my::FuncPtr p = env.find_function("HOGE");

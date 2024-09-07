@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <unicode/unistr.h>
+#include <sstream>
 using namespace icu;
 
 namespace my {
@@ -43,10 +44,6 @@ EnvPtr function::bind_arguments(ListPtr eval_args)
 ///////////////////////////////////////////////////////////////////////////
 // class Environment
 
-// TODO: インタプリタ class に移動
-EnvPtr global_env = std::make_shared<Environment>();
-
-
 Environment::Environment(EnvPtr outer) : m_outer(outer)
 {
     TRACE_ENV("Creating environment %p, outer=%p\n", this, m_outer.get() );
@@ -68,8 +65,8 @@ value_t Environment::find_value(const UnicodeString& symbol)
             return it->second.val;
     }
 
-    it = global_env->m_values.find(symbol);
-    if (it != global_env->m_values.end())
+    it = globalEnv->m_values.find(symbol);
+    if (it != globalEnv->m_values.end())
         return it->second.val;
 
     std::string u;
@@ -85,8 +82,8 @@ FuncPtr Environment::find_function(const UnicodeString& symbol)
             return it->second;
     }
 
-    it = global_env->m_functions.find(symbol);
-    if (it != global_env->m_functions.end())
+    it = globalEnv->m_functions.find(symbol);
+    if (it != globalEnv->m_functions.end())
         return it->second;
 
     std::string u;
@@ -104,15 +101,21 @@ void Environment::set_function(const UnicodeString& symbol, FuncPtr func)
     m_functions.insert(std::make_pair(symbol, func));
 }
 
-/*
-Environment* Environment::getRoot() noexcept
+
+// TODO: インタプリタクラスへの移動
+EnvPtr globalEnv = std::make_shared<Environment>();
+
+void define_function(const icu::UnicodeString& name,
+                            const icu::UnicodeString& params,
+                            std::function<my::value_t(my::EnvPtr)> func)
 {
-    // Work our way down the the global environment.
-    for (Environment* env = this; ; env = env->m_outer.get() ) {
-        if (!env->m_outer)
-            return env;
-    }
+    std::string u;
+    std::stringstream ss(params.toUTF8String(u) );
+    value_t paramv = READ(ss);
+    ListPtr param_list = VALUE_CAST_CHECKED(list, paramv);
+    my::FuncPtr func_ptr = std::make_shared<my::function>(name, param_list, func);
+    my::globalEnv->set_function(name, func_ptr);
 }
-*/
+
 
 } // namespace my

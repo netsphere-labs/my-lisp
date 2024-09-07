@@ -170,10 +170,12 @@ private:
 
 typedef std::variant< bool, int64_t, double, ObjectPtr > value_t;
 
-bool value_isa(const value_t& , const icu::UnicodeString& klass);
+extern bool value_isa(const value_t& , const icu::UnicodeString& klass);
 
 extern const std::shared_ptr<class null> nilValue;
 extern const std::shared_ptr<class symbol> trueValue;
+
+extern value_t READ(std::istream& stream);
 
 template <typename _T>
 inline std::shared_ptr<_T> OBJECT_CAST(const value_t& val)
@@ -373,7 +375,10 @@ public:
     }
 
     // NIL を足してもよい.
-    void append(const value_t& ptr) { list_.push_back(ptr); }
+    list& append(const value_t& ptr) {
+        list_.push_back(ptr);
+        return *this;
+    }
 
     void pop_back() { list_.pop_back(); }
 

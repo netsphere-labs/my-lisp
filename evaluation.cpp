@@ -57,18 +57,18 @@ struct Trampoline {
  b =>  4
  c =>  7
 */
-static Trampoline do_setq(std::shared_ptr<cons> args, EnvPtr env)
+static Trampoline do_setq(std::shared_ptr<cons> form, EnvPtr env)
 {
-    if ( args->length() == 1)
+    if ( form->length() == 1)
         return Trampoline(nilValue);
-    if ( (args->length() % 2) == 0 )
+    if ( (form->length() % 2) == 0 )
         throw std::runtime_error("odd number of args to SETQ");
 
     value_t ret;
-    for (int i = 1; i < args->length(); i += 2) {
-        std::shared_ptr<symbol> id = VALUE_CAST_CHECKED(symbol, args->at(i));
+    for (int i = 1; i < form->length(); i += 2) {
+        std::shared_ptr<symbol> id = VALUE_CAST_CHECKED(symbol, form->at(i));
         // 定数へ代入しようとしてエラーがありうる
-        ret = EVAL(args->at(i + 1), env);
+        ret = EVAL(form->at(i + 1), env);
         env->set_value(id->name(), ret, false);
     }
 
@@ -113,37 +113,37 @@ if test-form then-form [else-form] => result*
 (if test-form then-form else-form)
  ==  (cond (test-form then-form) (t else-form))
 */
-static Trampoline do_if(std::shared_ptr<cons> args, EnvPtr env)
+static Trampoline do_if(std::shared_ptr<cons> form, EnvPtr env)
 {
-    if ( !(args->length() >= 3 && args->length() <= 4) )
+    if ( !(form->length() >= 3 && form->length() <= 4) )
         throw std::runtime_error("args error");
 
-    bool isTrue = value_isTrue(EVAL(args->at(1), env));
-    if (!isTrue && args->length() == 3)
+    bool isTrue = value_isTrue(EVAL(form->at(1), env));
+    if (!isTrue && form->length() == 3)
         return Trampoline(nilValue);
 
-    return Trampoline(Trampoline::MORE, args->at(isTrue ? 2 : 3)); // TCO
+    return Trampoline(Trampoline::MORE, form->at(isTrue ? 2 : 3)); // TCO
 }
 
 // 順に評価
-static Trampoline do_progn(std::shared_ptr<cons> args, EnvPtr env)
+static Trampoline do_progn(std::shared_ptr<cons> form, EnvPtr env)
 {
-    if (args->length() == 1)
+    if (form->length() == 1)
         return Trampoline(nilValue);
 
     int i;
-    for (i = 1; i < args->length() - 1; ++i)
-        EVAL(args->at(i), env);
+    for (i = 1; i < form->length() - 1; ++i)
+        EVAL(form->at(i), env);
 
-    return Trampoline(Trampoline::MORE, args->at(i)); // TCO
+    return Trampoline(Trampoline::MORE, form->at(i)); // TCO
 }
 
-static Trampoline do_quote(std::shared_ptr<cons> args, EnvPtr env)
+static Trampoline do_quote(std::shared_ptr<cons> form, EnvPtr env)
 {
-    if (args->length() != 2)
+    if (form->length() != 2)
         throw std::runtime_error("wrong number of args to QUOTE");
 
-    return args->at(1);
+    return form->at(1);
 }
 
 static ListPtr make_progn(ListPtr list)
@@ -155,15 +155,22 @@ static ListPtr make_progn(ListPtr list)
 }
 
 
-// Special Operator LET, LET*
-// 新しいスコープを導入する
-static Trampoline do_let_star(std::shared_ptr<cons> args, EnvPtr env)
+/** Special Operator LET, LET*
+新しいスコープを導入する
+  (let ((if 10)) (+ if 10))  => これは通る! 逆にこれがマクロを難しくする
+次は通らない:
+* (defconstant hoge 10)
+HOGE
+* (let ((hoge 5)) (+ hoge 30))    #=> COMMON-LISP-USER::HOGE names a defined constant, and cannot be used in LET.
+なので, 慣習として, 定数名は "+" で囲む
+*/
+static Trampoline do_let_star(std::shared_ptr<cons> form, EnvPtr env)
 {
-    std::shared_ptr<symbol> op = OBJECT_CAST<symbol>(args->at(0));
+    std::shared_ptr<symbol> op = OBJECT_CAST<symbol>(form->at(0));
     bool is_star = op->name() == "LET*";
 
     // (let () (+ 2 3))   0個も可!
-    ListPtr bindings = VALUE_CAST_CHECKED(class list, args->at(1));
+    ListPtr bindings = VALUE_CAST_CHECKED(class list, form->at(1));
     EnvPtr inner = std::make_shared<Environment>(env);
     for ( const auto& var : *bindings ) {
         std::shared_ptr<symbol> sym;
@@ -180,11 +187,12 @@ static Trampoline do_let_star(std::shared_ptr<cons> args, EnvPtr env)
             sym = VALUE_CAST_CHECKED(symbol, var);
             val = nilValue;
         }
+        // 定数の場合はここでエラー
         inner->set_value(sym->name(), val, false);
     }
 
     // an implicit progn.
-    return Trampoline(Trampoline::MORE, make_progn(args->sub(2)), inner); // TCO
+    return Trampoline(Trampoline::MORE, make_progn(form->sub(2)), inner); // TCO
 }
 
 
@@ -224,30 +232,17 @@ static FuncPtr get_function(const value_t& func_name, EnvPtr env)
 // function name => function
 //    name: function name
 //     or lambda expression
-static Trampoline do_function(std::shared_ptr<cons> args, EnvPtr env)
+static Trampoline do_function(std::shared_ptr<cons> form, EnvPtr env)
 {
-    if (args->length() != 2)
+    if (form->length() != 2)
         throw std::runtime_error("wrong number of args to FUNCTION");
 
-    return value_t(get_function(args->at(1), env));
+    return value_t(get_function(form->at(1), env));
 }
 
 
-/*
-            if (special == "quasiquoteexpand") {
-                checkArgsIs("quasiquote", 1, argCount);
-                return quasiquote(list->item(1));
-            }
-
-            if (special == "quasiquote") {
-                checkArgsIs("quasiquote", 1, argCount);
-                ast = quasiquote(list->item(1));
-                continue; // TCO
-            }
-*/
-
-// 仕様で決まっている。
-// See https://www.lispworks.com/documentation/HyperSpec/Body/03_ababa.htm
+// Special operator の一覧は仕様で決まっている。後から追加できない。
+//  -- <a href="https://www.lispworks.com/documentation/HyperSpec/Body/03_ababa.htm">3.1.2.1.2.1 Special Forms</a>
 struct SpecialForm {
     icu::UnicodeString name;
     std::function<Trampoline(std::shared_ptr<cons>, EnvPtr )> func;

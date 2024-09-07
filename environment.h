@@ -80,10 +80,20 @@ public:
     ~Environment();
 
     // value を設定する
+    // (setq if 10)   => これはエラー: PACKAGE-LOCK-VIOLATION. シンボルの束縛時にエラー.
+    // (let ((if 10)) (+ if 10))  => これは通る! 逆にこれがマクロを難しくする
+    // 定数への(再)代入はエラー.
     void set_value(const icu::UnicodeString& symbol,
                           const value_t& value, bool constant);
 
     // function を設定する
+    // (defun if (x) (+ x 10))    => これはエラー: Special form is an illegal function name: IF.
+    // (defun list (x) (+ x 10))  #=> PACKAGE-LOCK-VIOLATION
+    // (defun nil (x) (+ x 10))   #=> PACKAGE-LOCK-VIOLATION. シンボルの束縛時にエラー
+    // 定数は set/find_value のほうなので、次は通る:
+    // * (defconstant fuga 10)
+    // FUGA
+    // * (defun fuga (x) (+ x 10))
     void set_function(const icu::UnicodeString& symbol, FuncPtr value);
 
     // ローカルと, global environment から探す
@@ -104,6 +114,14 @@ private:
 
     EnvPtr m_outer;
 };
+
+extern EnvPtr globalEnv;
+
+// global environment に関数を登録する
+extern void define_function(const icu::UnicodeString& name,
+                            const icu::UnicodeString& params,
+                            std::function<my::value_t(my::EnvPtr)> func);
+
 
 } // namespace my
 
