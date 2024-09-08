@@ -16,33 +16,29 @@ C++17
  - REPL Read-Eval-Print-Loop
    + ✅ GNU Readline はライセンスが GPLv3 なので使えない。libedit-devel を利用
      
- - Reader, Print
-   + ✅ ファイルからの読み込み `READ()` 関数, S式の構築、画面への表示 `PRINT()` 関数
-     - 文法をユーザが拡張できるので, bison/flex は使えない。手書き。
+ - Reader, Print  -- ファイルからの読み込み `READ()` 関数, S式の構築、画面への表示 `PRINT()` 関数. 文法をユーザが拡張できるので, bison/flex は使えない。手書き。
    + ✅ Standard Macro Characters
    + reader macro
    + Sharpsign (dispatching macro character)
      - `simple-vector`
    
- - Environments
+ - Environment
    + ✅ 変数定義. `SETQ`
-   + レキシカルスコープ. `LET`, `LET*`
-   + ビルトイン関数
-   + ✅ 関数呼び出し. Function `FUNCALL`
+   + ✅ レキシカルスコープ. `LET`, `LET*`
+   + ✅ ビルトイン関数の登録
    
- - Eval
-   + `EVAL()` をつくる
-   + atom の評価
+ - Eval  -- `EVAL()` が AST を評価.
+   + ✅ 関数呼び出し. Function `FUNCALL`
+   + ✅ atom の評価
    + `lambda` 式からクロージャをつくる
    + ユーザ定義関数
-   
- - Special operator `IF`, macro `DO`
- 
- - Tail Call Optimization (TCO)
+   + ✅ Special operator `IF`
+   + macro `DO`
+   + ✅ Tail Call Optimization (TCO)
  
  - Files
  
- - ✅ Quoting `QUOTE`
+ - Quoting `QUOTE`
  
  - Macros
    + Backquote `quasiquote`, Comma `unquote`, `,@` `unquote-splicing`

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <unicode/unistr.h>
 #include <sstream>
+#include <iostream>
 using namespace icu;
 
 namespace my {
@@ -90,9 +91,13 @@ FuncPtr Environment::find_function(const UnicodeString& symbol)
     throw std::invalid_argument(symbol.toUTF8String(u) );
 }
 
+    extern void PRINT(const value_t& value, std::ostream& out);
 
-void Environment::set_value(const UnicodeString& symbol, const value_t& value, bool constant)
+void Environment::set_value(const UnicodeString& symbol, const value_t& value,
+                            bool constant)
 {
+    std::cout << __func__ << ": "; PRINT(value, std::cout); std::cout << "\n"; // DEBUG
+
     m_values.insert(std::make_pair(symbol, BoundValue { .val = value, .constant = constant}));
 }
 

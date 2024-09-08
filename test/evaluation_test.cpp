@@ -1,10 +1,12 @@
 
 #include "../environment.h"
 #include <sstream>
+#include <iostream>
 
 namespace my {
     extern value_t EVAL(value_t ast, EnvPtr env);
     extern bool value_isTrue(const value_t& value) ;
+    extern void PRINT(const value_t& value, std::ostream& out);
 }
 
 my::value_t func1(my::EnvPtr args) {
@@ -17,8 +19,11 @@ my::value_t func1(my::EnvPtr args) {
 
 my::value_t func2(my::EnvPtr args) {
     my::value_t x = args->find_value("X");
-    int64_t v = std::get<int64_t>(x);
-    printf("func2: %ld\n", v);
+
+    std::cout << __func__ << ": "; PRINT(x, std::cout); std::cout << "\n"; // DEBUG
+
+    double v = std::get<double>(x);
+    printf("func2: %f\n", v);
 
     return x;
 }
@@ -35,8 +40,8 @@ my::value_t do_not(my::EnvPtr args) {
 // Function WRITE, PRIN1, PRINT, PPRINT, PRINC
 my::value_t do_print(my::EnvPtr args) {
     my::value_t x = args->find_value("X");
-    int64_t v = std::get<int64_t>(x);
-    printf("%ld\n", v);
+    double v = std::get<double>(x);
+    printf("%f\n", v);
 
     return my::nilValue;
 }

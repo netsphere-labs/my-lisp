@@ -4,15 +4,21 @@
 
 #include "s_expr.h"
 #include "environment.h"
+#include <iostream>
 
 namespace my {
 
 value_t EVAL(value_t ast, EnvPtr env);
 
-// そのまま返す
-static value_t eval_atom(const value_t& ast, EnvPtr env)
+static value_t eval_atom(const value_t& atom, EnvPtr env)
 {
-    return ast;
+    std::shared_ptr<symbol> sym = OBJECT_CAST<symbol>(atom);
+    if (sym != nullptr) {
+        return env->find_value(sym->name());
+    }
+
+    // そのまま返す
+    return atom;
 }
 
 
@@ -195,10 +201,13 @@ static Trampoline do_let_star(std::shared_ptr<cons> form, EnvPtr env)
     return Trampoline(Trampoline::MORE, make_progn(form->sub(2)), inner); // TCO
 }
 
+extern void PRINT(const value_t& value, std::ostream& out);
 
 // lambda form と (function ...) と共用
 static FuncPtr get_function(const value_t& func_name, EnvPtr env)
 {
+    std::cout << __func__ << ": "; PRINT(func_name, std::cout); std::cout << "\n"; // DEBUG
+
     std::shared_ptr<symbol> sym = OBJECT_CAST<symbol>(func_name);
     if (sym) {
         // 1. (funcall #'+ 1 2 3) =>  6
@@ -264,8 +273,8 @@ static const SpecialForm specialForms[] = {
 //    {"labels", },
 //    {"macrolet", do_macrolet},  // define local macros
     {"FUNCTION", do_function},
-    {"let", do_let_star},   // `let` performs the bindings in parallel
-    {"let*", do_let_star},  // `let*` does them sequentially
+    {"LET", do_let_star},   // `let` performs the bindings in parallel
+    {"LET*", do_let_star},  // `let*` does them sequentially
     //    {"progv", },
     {"SETQ", do_setq},
     //{"block", },
@@ -306,6 +315,8 @@ value_t macroExpand(const value_t& ast, EnvPtr env) {
 */
 static ListPtr eval_args(ListPtr args, EnvPtr env)
 {
+    std::cout << __func__ << ": "; PRINT(args, std::cout); std::cout << "\n"; // DEBUG
+
     if (args->length() == 0)
         return nilValue;
 
@@ -320,6 +331,8 @@ static ListPtr eval_args(ListPtr args, EnvPtr env)
 value_t EVAL(value_t ast, EnvPtr env)
 {
     while (true) {
+        std::cout << "EVAL() loop: "; PRINT(ast, std::cout); std::cout << "\n"; // DEBUG
+
         ListPtr list = OBJECT_CAST<class list>(ast);
         if (!list || list->empty() )
             return eval_atom(ast, env);
