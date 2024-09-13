@@ -1,7 +1,9 @@
 
 .PHONY: all clean
 
-TARGETS = ref_counted_test  reader_test  edit_line_test environment_test evaluation_test
+TARGETS = ref_counted_test  reader_test  edit_line_test environment_test \
+    macro_test evaluation_test
+
 all: $(TARGETS)
 
 # コンパイラオプション:
@@ -9,10 +11,13 @@ all: $(TARGETS)
 # 英語版のほうが更新されている。
 
 # GDB でデバグする場合, `-g` オプションよりも `-g3` のほうが便利.
+# リリースビルド = -DNDEBUG
+DEBUG = -g3 -D_DEBUG
+
 # _FORTIFY_SOURCE は副作用がありうる
-CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-format-extra-args -g3 \
-    -O2 -Wformat -Wformat=2 -Wimplicit-fallthrough \
-    -Werror=format-security \
+CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-format-extra-args \
+    -O2 -Wformat -Wformat=2 -Wimplicit-fallthrough -Werror=format-security \
+    $(DEBUG) \
     -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 \
     -D_GLIBCXX_ASSERTIONS \
     -fstrict-flex-arrays=3 \
@@ -36,6 +41,9 @@ edit_line_test: edit_line_test.o ../edit_line.o
 
 
 environment_test: environment_test.o ../environment.o ../object_print.o ../reader.o
+	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
+
+macro_test: macro_test.o ../macros.o ../environment.o ../object_print.o ../reader.o ../evaluation.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
 evaluation_test: evaluation_test.o ../evaluation.o ../environment.o ../object_print.o ../reader.o

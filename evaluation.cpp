@@ -10,7 +10,7 @@ namespace my {
 
 value_t EVAL(value_t ast, EnvPtr env);
 
-static value_t eval_atom(const value_t& atom, EnvPtr env)
+value_t eval_atom(const value_t& atom, EnvPtr env)
 {
     std::shared_ptr<symbol> sym = OBJECT_CAST<symbol>(atom);
     if (sym != nullptr) {
@@ -82,23 +82,13 @@ static Trampoline do_setq(std::shared_ptr<cons> form, EnvPtr env)
 }
 
 
-/*
-(defun) はマクロで、次のように展開される
-* (macroexpand '(defun dbl (n) (* 2 n)))
-(PROGN
- (EVAL-WHEN (:COMPILE-TOPLEVEL) (SB-C:%COMPILER-DEFUN 'DBL T NIL NIL))
- (SB-IMPL::%DEFUN 'DBL
-                  (SB-INT:NAMED-LAMBDA DBL
-                      (N)
-                    (BLOCK DBL (* 2 N)))))
-T
+/**
+CL: (defun) はマクロ. 手抜きで, special op にする
+defun function-name lambda-list [[declaration* | documentation]] form*
 */
-/*
-static ret_t do_flet()
+static Trampoline do_defun(std::shared_ptr<cons> form, EnvPtr env)
 {
-            if (special == "fn*") {
-                checkArgsIs("fn*", 2, argCount);
-
+    /*
                 const malSequence* bindings =
                     VALUE_CAST(malSequence, list->item(1));
                 StringVec params;
@@ -107,11 +97,26 @@ static ret_t do_flet()
                         VALUE_CAST(malSymbol, bindings->item(i));
                     params.push_back(sym->value());
                 }
+    */
 
-                return mal::lambda(params, list->item(2), env);
-            }
+    return Trampoline(nilValue);
 }
+
+/**
+CL: DO, DO* はマクロ。手抜きで, special op にする
+do ({var | (var [init-form [step-form]])}*) (end-test-form result-form*) declaration* {tag | statement}*
 */
+static Trampoline do_do(std::shared_ptr<cons> form, EnvPtr env)
+{
+    /*
+                for (int i = 1; i < argCount; i++) {
+                    EVAL(list->item(i), env);
+                }
+                ast = list->item(argCount);
+                continue; // TCO
+    */
+    return Trampoline(nilValue);
+}
 
 
 /** then-form, else-form は 1文だけ.
@@ -201,7 +206,22 @@ static Trampoline do_let_star(std::shared_ptr<cons> form, EnvPtr env)
     return Trampoline(Trampoline::MORE, make_progn(form->sub(2)), inner); // TCO
 }
 
-extern void PRINT(const value_t& value, std::ostream& out);
+// val がリストで，かつ op シンボルか
+// @return 違った場合 nullptr
+std::shared_ptr<cons> starts_with(const value_t& val,
+                                  const icu::UnicodeString& op)
+{
+    std::shared_ptr<cons> form = OBJECT_CAST<cons>(val);
+    if (form == nullptr)
+        return nullptr;
+
+    std::shared_ptr<symbol> sym = OBJECT_CAST<symbol>(form->at(0));
+    if ( sym == nullptr || sym->name() != op )
+        return nullptr;
+
+    return form;
+}
+
 
 // lambda form と (function ...) と共用
 static FuncPtr get_function(const value_t& func_name, EnvPtr env)
@@ -219,15 +239,11 @@ static FuncPtr get_function(const value_t& func_name, EnvPtr env)
     }
     else {
         // lambda expression
-        std::shared_ptr<cons> lambda_expr = OBJECT_CAST<cons>(func_name);
+        std::shared_ptr<cons> lambda_expr = starts_with(func_name, "LAMBDA");
         if (lambda_expr == nullptr)
-            throw std::runtime_error("not symbol nor cons");
+            throw std::runtime_error("not symbol nor lambda expression");
         if (lambda_expr->length() < 2)
             throw std::runtime_error("args needed");
-
-        sym = VALUE_CAST_CHECKED(symbol, lambda_expr->at(0));
-        if ( sym == nullptr || sym->name() != "LAMBDA" )
-            throw std::runtime_error("not lambda");
 
         // クロージャを作って返す
         FuncPtr func = std::make_shared<function>("<lambda>",
@@ -247,6 +263,61 @@ static Trampoline do_function(std::shared_ptr<cons> form, EnvPtr env)
         throw std::runtime_error("wrong number of args to FUNCTION");
 
     return value_t(get_function(form->at(1), env));
+}
+
+
+// マクロの外側でも使える
+Trampoline do_quasiquote(std::shared_ptr<cons> form, EnvPtr env)
+{
+    ListPtr tmpl = OBJECT_CAST<class list>(form->at(1));
+    if (!tmpl || tmpl->empty() )
+        return form->at(1); // シンボルもそのまま返せばよい
+
+    // `,x の形   tmpl = (unquote x)
+    std::shared_ptr<cons> unq = starts_with(tmpl->at(0), "UNQUOTE"); // ","
+    if (unq != nullptr) {
+        // `,1       => 1
+        // `,x       => 変数 X を評価
+        // `,(+ 2 3) => 5  リストを評価
+        return EVAL(tmpl->at(1), env);
+    }
+    else {
+        // `,@s はエラー: `,@S is not a well-formed backquote expression
+        unq = starts_with(tmpl->at(0), "UNQUOTE-SPLICING"); // ",@"
+        if (unq != nullptr)
+            throw std::runtime_error("not a well-formed backquote expression");
+    }
+
+    // `(1 2)     => (1 2)
+    // `(1 ,x 3)  => x を評価して埋め込む
+    // `(1 ,@s 5) => s は LIST でなければならない。展開して埋め込む
+    std::shared_ptr<cons> ret = std::make_shared<class cons>();
+
+    for (const auto& v : *tmpl) {
+        std::shared_ptr<cons> sub = OBJECT_CAST<cons>(v);
+        if (sub != nullptr) {
+            std::shared_ptr<symbol> op = OBJECT_CAST<symbol>(sub->at(0));
+            if (op != nullptr && op->name() == "UNQUOTE")  // ","
+                ret->append(EVAL(sub->at(1), env));
+            else if (op != nullptr && op->name() == "UNQUOTE-SPLICING") {// ",@"
+                ListPtr lst = VALUE_CAST_CHECKED(class list, EVAL(sub->at(1), env));
+                if ( !lst->empty()) // NIL のときは要素削除
+                    ret->append_range(lst);
+            }
+            else {
+                Trampoline r = do_quasiquote(sub, env); // 再帰
+                ret->append(r.value);
+            }
+        }
+        else
+            ret->append(v); // 評価しない
+    }
+
+    // `()  => NIL
+    if (ret->empty())
+        return Trampoline(nilValue);
+    else
+        return Trampoline(ret);
 }
 
 
@@ -288,6 +359,12 @@ static const SpecialForm specialForms[] = {
     //{"multiple-value-call", },
     //{"multiple-value-prog1", },
     {"PROGN", do_progn},
+
+    // とりあえず special operator として追加する:
+    {"QUASIQUOTE", do_quasiquote},
+    {"DEFUN", do_defun},
+    {"DO", do_do},
+    {"DO*", do_do},
 };
 
 
@@ -301,18 +378,6 @@ value_t macroExpand(const value_t& ast, EnvPtr env) {
 }
 
 
-/** 関数の実行
-1. lambda form だけ特別扱いされる
-     ((lambda lambda-list . body) . arguments)
-   is semantically equivalent to the function form
-     (funcall #'(lambda lambda-list . body) . arguments)
-
-2. どのメソッドを呼び出すか、実引数を評価した後に決める
-     1. compute the list of applicable methods
-     2. if no method is applicable then signal an error
-     3. sort the applicable methods in order of specificity
-     4. invoke the most specific method.
-*/
 static ListPtr eval_args(ListPtr args, EnvPtr env)
 {
     std::cout << __func__ << ": "; PRINT(args, std::cout); std::cout << "\n"; // DEBUG
@@ -327,6 +392,19 @@ static ListPtr eval_args(ListPtr args, EnvPtr env)
     return ret;
 }
 
+
+/* 関数の実行
+1. lambda form だけ特別扱いされる
+     ((lambda lambda-list . body) . arguments)
+   is semantically equivalent to the function form
+     (funcall #'(lambda lambda-list . body) . arguments)
+
+2. どのメソッドを呼び出すか、実引数を評価した後に決める
+     1. compute the list of applicable methods
+     2. if no method is applicable then signal an error
+     3. sort the applicable methods in order of specificity
+     4. invoke the most specific method.
+*/
 
 value_t EVAL(value_t ast, EnvPtr env)
 {
@@ -372,7 +450,7 @@ value_t EVAL(value_t ast, EnvPtr env)
         // だいぶ手抜きでいく
         evaled = eval_args(list->sub(1), env);
         // lambda form だけ特別扱いされる
-        func = get_function(list->at(0), env); // TODO: メソッド選定
+        func = get_function(list->at(0), env);
         // ここではもう, 元の env は不要
         if ( func->is_builtin() ) {
             env = nullptr;

@@ -20,8 +20,10 @@ public:
     function() { }
 
     // 関数またはクロージャをつくって返す
-    function(const icu::UnicodeString& name, ListPtr params, ListPtr body,
-             EnvPtr outer) : m_name(name), m_params(params), m_body(body), m_outer_env(outer) { }
+    function(const icu::UnicodeString& name, ListPtr params,
+             ListPtr body, // (defun ff () 1) も通る
+             EnvPtr outer, bool isMacro = false) :
+        m_name(name), m_params(params), m_body(body), m_outer_env(outer), m_isMacro(isMacro) { }
 
     function(const icu::UnicodeString& name, ListPtr params,
              const std::function<value_t(EnvPtr)>& handler) :
@@ -32,15 +34,18 @@ public:
 
     icu::UnicodeString name() const { return m_name; }
 
-    bool is_builtin() const { return m_handler != nullptr; }
+    bool is_builtin() const noexcept { return m_handler != nullptr; }
+    bool is_macro() const noexcept { return m_isMacro ; }
 
-    ListPtr getBody() const { return m_body; }
+    ListPtr getBody() const noexcept { return m_body; }
 
     // 実引数の bind だけをおこなう
     EnvPtr bind_arguments(ListPtr evaled_args);
 
     // 関数を実行. bind_arguments() を含む
-    value_t apply(ListPtr evaled_args);
+    virtual value_t apply(ListPtr evaled_args);
+
+    value_t expand_macro(ListPtr args);
 
 private:
     // クロージャは "<lambda>"
@@ -52,15 +57,43 @@ private:
     // ビルトイン
     std::function<value_t(EnvPtr)> m_handler;
 
-    // implicit progn. nil がありえる
+    // implicit progn. nil がありえる.
     ListPtr m_body;
 
-    EnvPtr m_outer_env; // lexical environment. function では NULL.
+    EnvPtr m_outer_env; // lexical environment. function, macro では NULL.
 
     bool m_isMacro;
 };
 
 typedef std::shared_ptr<function> FuncPtr;
+
+class GenericFunction : public function
+{
+public:
+    // 実引数の型によって, 実際に呼び出すメソッドが変わる
+    value_t apply(ListPtr evaled_args);
+};
+
+
+////////////////////////////////////////////////////////////////////////
+// class Environment
+
+/*
+定数への再代入が禁止されるのであって、オブジェクトの変更は可能
+-> 環境のほうで対応する
+  (defconstant const '(1 2 3))
+  (push 'x const)
+  ; ==>
+  ;   (SETQ CONST (CONS 'X CONST))
+  error: CONST is a constant and thus can't be set.
+
+* (defconstant const '(1 2 3))
+CONST
+* (nconc const 'x)
+(1 2 3 . X)
+* const
+(1 2 3 . X)
+*/
 
 
 struct BoundValue {
@@ -81,7 +114,7 @@ public:
 
     // value を設定する
     // (setq if 10)   => これはエラー: PACKAGE-LOCK-VIOLATION. シンボルの束縛時にエラー.
-    // (let ((if 10)) (+ if 10))  => これは通る! 逆にこれがマクロを難しくする
+    // (let ((if 10)) (+ if 10))  => これは通る! special op は function のほう.
     // 定数への(再)代入はエラー.
     void set_value(const icu::UnicodeString& symbol,
                           const value_t& value, bool constant);

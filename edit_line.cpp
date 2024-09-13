@@ -6,8 +6,7 @@
 #include "my_debug.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-
+//#include <unistd.h>
 #include <editline/readline.h>
 #include <unicode/unistr.h>
 using namespace icu;

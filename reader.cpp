@@ -30,7 +30,7 @@ enum token_type {
     reader_error,  // "..", "...", "# " and "#)"
 };
 
-token_type read_from_string(std::istream& stream, value_t* value_r);
+static token_type read_token(std::istream& stream, value_t* value_r);
 
 
 ////////////////////////
@@ -88,7 +88,7 @@ static value_t parse_list(std::istream& stream, char dmy)
     int dot_cons = 0;
     for (int i = 0; ; ++i) {
         value_t val;
-        token_type tok = read_from_string(stream, &val);
+        token_type tok = read_token(stream, &val);
         std::shared_ptr<symbol> sym;
         switch (tok) {
         case token_type::END_OF_FILE:
@@ -149,7 +149,7 @@ static value_t parse_quote(std::istream& stream, char dmy)
     lst->append(std::make_shared<my::symbol>("QUOTE"));
 
     value_t val;
-    token_type tok = read_from_string(stream, &val);
+    token_type tok = read_token(stream, &val);
     switch (tok) {
     case token_type::END_OF_FILE:
         throw std::invalid_argument("unexpected EOF");
@@ -171,7 +171,7 @@ static value_t parse_quasiquote(std::istream& stream, char dmy)
     lst->append(std::make_shared<my::symbol>("QUASIQUOTE"));
 
     value_t val;
-    token_type tok = read_from_string(stream, &val);
+    token_type tok = read_token(stream, &val);
     switch (tok) {
     case token_type::END_OF_FILE:
         throw std::invalid_argument("unexpected EOF");
@@ -198,7 +198,7 @@ static value_t parse_unquote(std::istream& stream, char dmy)
         lst->append(std::make_shared<my::symbol>("UNQUOTE"));
 
     value_t val;
-    token_type tok = read_from_string(stream, &val);
+    token_type tok = read_token(stream, &val);
     switch (tok) {
     case token_type::END_OF_FILE:
         throw std::invalid_argument("unexpected EOF");
@@ -286,7 +286,7 @@ static const ReaderMacro macroTable[] = {
 
 
 // 値を一つだけ読む
-token_type read_from_string(std::istream& stream, value_t* value_r)
+static token_type read_token(std::istream& stream, value_t* value_r)
 {
     int ch = stream.get();
 
@@ -335,13 +335,20 @@ token_type read_from_string(std::istream& stream, value_t* value_r)
 value_t READ(std::istream& stream)
 {
     value_t val;
-    token_type tok = read_from_string(stream, &val);
+    token_type tok = read_token(stream, &val);
     switch (tok) {
     case token_type::value:
         return val;
     default:
         throw std::invalid_argument("something wrong");
     }
+}
+
+value_t read_from_string(const icu::UnicodeString& str)
+{
+    std::string u;
+    std::stringstream ast_ss(str.toUTF8String(u));
+    return my::READ(ast_ss);
 }
 
 

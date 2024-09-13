@@ -6,10 +6,6 @@
 #include <iostream>
 #include <fstream>
 
-namespace my {
-  extern my::value_t READ(std::istream& stream);
-  extern void PRINT(const my::value_t& value, std::ostream& out);
-}
 
 int main(int argc, char** argv)
 {

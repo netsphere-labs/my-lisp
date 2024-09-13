@@ -91,7 +91,6 @@ FuncPtr Environment::find_function(const UnicodeString& symbol)
     throw std::invalid_argument(symbol.toUTF8String(u) );
 }
 
-    extern void PRINT(const value_t& value, std::ostream& out);
 
 void Environment::set_value(const UnicodeString& symbol, const value_t& value,
                             bool constant)
@@ -114,9 +113,7 @@ void define_function(const icu::UnicodeString& name,
                             const icu::UnicodeString& params,
                             std::function<my::value_t(my::EnvPtr)> func)
 {
-    std::string u;
-    std::stringstream ss(params.toUTF8String(u) );
-    value_t paramv = READ(ss);
+    value_t paramv = read_from_string(params);
     ListPtr param_list = VALUE_CAST_CHECKED(list, paramv);
     my::FuncPtr func_ptr = std::make_shared<my::function>(name, param_list, func);
     my::globalEnv->set_function(name, func_ptr);

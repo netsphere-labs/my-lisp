@@ -10,41 +10,12 @@
 #include <variant>
 #include <vector>
 #include <map>
-#include <list>
+//#include <list>
 #include <stdexcept>
 #include <memory>  // std::shared_ptr<>
 
 namespace my {
 
-class EmptyInputException : public std::runtime_error { };
-
-/*
-定数はクラスではない  -> 環境のほうで対応する
-  (defconstant const '(1 2 3))
-  (push 'x const)
-  ; ==>
-  ;   (SETQ CONST (CONS 'X CONST))
-  error: CONST is a constant and thus can't be set.
-
-定数への再代入が禁止されるのであって、オブジェクトの変更は可能
-* (defconstant const '(1 2 3))
-CONST
-* (nconc const 'x)
-(1 2 3 . X)
-* const
-(1 2 3 . X)
-*/
-
-/*
-(describe) でクラスが分かる. (describe 'fixnum) とするとクラスの説明
-
-* (describe 1)
-1
-  [fixnum]
-* (describe 1.2)
-1.2
-  [single-float]
-*/
 
 /** 頂点オブジェクト. t はこの唯一のインスタンス
 歴史的に, type と class が混在している
@@ -176,6 +147,9 @@ extern const std::shared_ptr<class null> nilValue;
 extern const std::shared_ptr<class symbol> trueValue;
 
 extern value_t READ(std::istream& stream);
+extern value_t read_from_string(const icu::UnicodeString& str);
+
+extern void PRINT(const value_t& value, std::ostream& out);
 
 template <typename _T>
 inline std::shared_ptr<_T> OBJECT_CAST(const value_t& val)
@@ -375,7 +349,7 @@ public:
     }
 
     // NIL を足してもよい.
-    list& append(const value_t& ptr) {
+    cons& append(const value_t& ptr) {
         list_.push_back(ptr);
         return *this;
     }
