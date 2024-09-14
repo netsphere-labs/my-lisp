@@ -6,6 +6,11 @@
 #include <iostream>
 #include <fstream>
 
+// Multiline comments
+void test_comment()
+{
+    // TODO: impl.
+}
 
 int main(int argc, char** argv)
 {

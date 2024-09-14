@@ -6,6 +6,7 @@ namespace my {
 extern value_t EVAL(value_t ast, EnvPtr env);
 extern value_t eval_atom(const value_t& atom, EnvPtr env);
 
+
 // Macro DEFMACRO
 // defmacro name lambda-list [[declaration* | documentation]] form*
 //
@@ -65,5 +66,16 @@ my::value_t macroExpand1(my::EnvPtr args)
 
     return tmpl; // 評価せず戻す
 }
+
+/**
+ * repeatedly expands form until it is no longer a macro form.
+ * @return 展開した AST を返す
+ */
+value_t macroExpand(EnvPtr args)
+{
+    // TODO: impl.
+    return macroExpand1(args);
+}
+
 
 } // namespace my

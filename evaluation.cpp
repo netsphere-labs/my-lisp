@@ -266,13 +266,8 @@ static Trampoline do_function(std::shared_ptr<cons> form, EnvPtr env)
 }
 
 
-// マクロの外側でも使える
-Trampoline do_quasiquote(std::shared_ptr<cons> form, EnvPtr env)
+static value_t do_quasiquote_sub(ListPtr tmpl, EnvPtr env)
 {
-    ListPtr tmpl = OBJECT_CAST<class list>(form->at(1));
-    if (!tmpl || tmpl->empty() )
-        return form->at(1); // シンボルもそのまま返せばよい
-
     // `,x の形   tmpl = (unquote x)
     std::shared_ptr<cons> unq = starts_with(tmpl->at(0), "UNQUOTE"); // ","
     if (unq != nullptr) {
@@ -305,8 +300,8 @@ Trampoline do_quasiquote(std::shared_ptr<cons> form, EnvPtr env)
                     ret->append_range(lst);
             }
             else {
-                Trampoline r = do_quasiquote(sub, env); // 再帰
-                ret->append(r.value);
+                value_t r = do_quasiquote_sub(sub, env);
+                ret->append(r);
             }
         }
         else
@@ -315,9 +310,20 @@ Trampoline do_quasiquote(std::shared_ptr<cons> form, EnvPtr env)
 
     // `()  => NIL
     if (ret->empty())
-        return Trampoline(nilValue);
+        return nilValue;
     else
-        return Trampoline(ret);
+        return ret;
+}
+
+// マクロの外側でも使える
+Trampoline do_quasiquote(std::shared_ptr<cons> form, EnvPtr env)
+{
+    ListPtr tmpl = OBJECT_CAST<class list>(form->at(1));
+    if (!tmpl || tmpl->empty() )
+        return form->at(1); // シンボルもそのまま返せばよい
+
+    value_t ret = do_quasiquote_sub(OBJECT_CAST<list>(tmpl), env);
+    return ret;
 }
 
 
@@ -368,16 +374,6 @@ static const SpecialForm specialForms[] = {
 };
 
 
-/**
- * repeatedly expands form until it is no longer a macro form.
- * @return 展開した AST を返す
- */
-value_t macroExpand(const value_t& ast, EnvPtr env) {
-    // TODO: impl. とりあえずそのまま返す
-    return ast;
-}
-
-
 static ListPtr eval_args(ListPtr args, EnvPtr env)
 {
     std::cout << __func__ << ": "; PRINT(args, std::cout); std::cout << "\n"; // DEBUG
@@ -406,18 +402,26 @@ static ListPtr eval_args(ListPtr args, EnvPtr env)
      4. invoke the most specific method.
 */
 
+extern value_t macroExpand(EnvPtr args);
+
 value_t EVAL(value_t ast, EnvPtr env)
 {
     while (true) {
-        std::cout << "EVAL() loop: "; PRINT(ast, std::cout); std::cout << "\n"; // DEBUG
+        //std::cout << "EVAL() loop: "; PRINT(ast, std::cout); std::cout << "\n"; // DEBUG
 
         ListPtr list = OBJECT_CAST<class list>(ast);
         if (!list || list->empty() )
             return eval_atom(ast, env);
 
+#ifndef DISABLE_MACRO
         // CL: special form と同名の関数は禁止.
-        ast = macroExpand(ast, env);  // 実引数を評価せずに渡す
+        EnvPtr exp_env = std::make_shared<Environment>();
+        exp_env->set_value("FORM", ast, false);
+        ast = macroExpand(exp_env);  // 実引数を評価せずに渡す
                                       // TODO: 実引数の個数の事前検査?
+        exp_env.reset();
+#endif
+
         list = OBJECT_CAST<class list>(ast);
         if ( !list || list->empty() )
             return eval_atom(ast, env);

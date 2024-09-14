@@ -133,6 +133,7 @@ public:
     value_t find_value(const icu::UnicodeString& symbol);
 
     // ローカルと, global environment から探す
+    // @return 見つからなかったときは nullptr
     FuncPtr find_function(const icu::UnicodeString& symbol);
 
 private:

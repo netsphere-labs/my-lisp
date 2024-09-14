@@ -46,7 +46,7 @@ environment_test: environment_test.o ../environment.o ../object_print.o ../reade
 macro_test: macro_test.o ../macros.o ../environment.o ../object_print.o ../reader.o ../evaluation.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
-evaluation_test: evaluation_test.o ../evaluation.o ../environment.o ../object_print.o ../reader.o
+evaluation_test: evaluation_test.o ../evaluation.o ../environment.o ../object_print.o ../reader.o ../macros.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
 

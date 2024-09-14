@@ -47,10 +47,13 @@ my::value_t func2(my::EnvPtr args) {
     return x;
 }
 
-
+// * (defun times-elm (n xs)
+//     (mapcar (lambda (x) (* x n)) xs))   n, xs をレキシカルに外側へ探す
+// * (times-elm 3 '(1 2 3))
+// (3 6 9)
 void test_lambda()
 {
-    // TODO: ● lambda expr のテスト
+    // lambda expr のテスト
 }
 
 int main()

@@ -74,6 +74,7 @@ value_t Environment::find_value(const UnicodeString& symbol)
     throw std::invalid_argument(symbol.toUTF8String(u) );
 }
 
+// @return 見つからなかったときは nullptr
 FuncPtr Environment::find_function(const UnicodeString& symbol)
 {
     FuncMap::const_iterator it;
@@ -88,7 +89,7 @@ FuncPtr Environment::find_function(const UnicodeString& symbol)
         return it->second;
 
     std::string u;
-    throw std::invalid_argument(symbol.toUTF8String(u) );
+    return nullptr; // std::invalid_argument(symbol.toUTF8String(u) );
 }
 
 
