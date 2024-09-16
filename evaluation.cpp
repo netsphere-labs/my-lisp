@@ -31,6 +31,26 @@ bool value_isTrue(const value_t& value) {
     return true;
 }
 
+static ListPtr make_progn(ListPtr list)
+{
+    std::shared_ptr<cons> progn = std::make_shared<cons>();
+    progn->append(std::make_shared<symbol>("PROGN"));
+    progn->append_range(list);
+    return progn;
+}
+
+
+// ビルトイン関数の実行
+// @param evaled_args 評価された後の実引数のリスト
+value_t function::apply(ListPtr evaled_args)
+{
+    EnvPtr inner = bind_arguments(evaled_args);
+    if (is_builtin())
+        return m_handler(inner);
+
+    return EVAL(make_progn(m_body), inner);
+}
+
 
 /////////////////////////////////////////////////////////////////////////
 // Special Forms
@@ -88,16 +108,13 @@ defun function-name lambda-list [[declaration* | documentation]] form*
 */
 static Trampoline do_defun(std::shared_ptr<cons> form, EnvPtr env)
 {
-    /*
-                const malSequence* bindings =
-                    VALUE_CAST(malSequence, list->item(1));
-                StringVec params;
-                for (int i = 0; i < bindings->count(); i++) {
-                    const malSymbol* sym =
-                        VALUE_CAST(malSymbol, bindings->item(i));
-                    params.push_back(sym->value());
-                }
-    */
+    std::shared_ptr<symbol> name = VALUE_CAST_CHECKED(symbol, form->at(1));
+    ListPtr params = VALUE_CAST_CHECKED(class list, form->at(2));
+    ListPtr body = form->sub(3); // an implicit progn.
+
+    FuncPtr func_ptr = std::make_shared<function>(
+                                        name->name(), params, body, nullptr);
+    globalEnv->set_function(name->name(), func_ptr);
 
     return Trampoline(nilValue);
 }
@@ -155,14 +172,6 @@ static Trampoline do_quote(std::shared_ptr<cons> form, EnvPtr env)
         throw std::runtime_error("wrong number of args to QUOTE");
 
     return form->at(1);
-}
-
-static ListPtr make_progn(ListPtr list)
-{
-    std::shared_ptr<cons> progn = std::make_shared<cons>();
-    progn->append(std::make_shared<symbol>("PROGN"));
-    progn->append_range(list);
-    return progn;
 }
 
 

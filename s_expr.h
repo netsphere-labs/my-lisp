@@ -278,12 +278,13 @@ public:
     // (car nil)         => NIL
     virtual value_t car() const noexcept = 0;
 
-    virtual ListPtr sub(int start) const = 0;
-
     // operator [] があるもの
     typedef std::vector<value_t> Container;
     typedef typename Container::const_iterator  const_iterator ;
     typedef typename Container::iterator        iterator ;
+
+    virtual ListPtr sub(int start) const = 0;
+    virtual ListPtr sub(const_iterator start) const = 0;
 
     virtual iterator begin() noexcept = 0;
     virtual iterator end() noexcept = 0;
@@ -348,6 +349,14 @@ public:
             return std::make_shared<cons>(list_.begin() + start, list_.end());
     }
 
+    // @override
+    ListPtr sub(const_iterator start) const {
+        if (start == end())
+            return std::static_pointer_cast<list>(nilValue);
+        else
+            return std::make_shared<cons>(start, list_.end());
+    }
+
     // NIL を足してもよい.
     cons& append(const value_t& ptr) {
         list_.push_back(ptr);
@@ -402,6 +411,14 @@ public:
     ListPtr sub(int start) const {
         if (start < 0 || start > length() )
             throw std::out_of_range("start must >= 0 && <= length()");
+
+        return std::static_pointer_cast<list>(nilValue);
+    }
+
+    // @override
+    ListPtr sub(const_iterator start) const {
+        if (start != begin())
+            throw std::out_of_range("start must eq begin()");
 
         return std::static_pointer_cast<list>(nilValue);
     }

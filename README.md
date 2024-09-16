@@ -33,8 +33,8 @@ C++17
  - Eval  -- `EVAL()` が AST を評価.
    + ✅ 関数呼び出し. Function `FUNCALL`
    + ✅ atom の評価
-   + `lambda` 式からクロージャをつくる
-   + ユーザ関数の定義 `DEFUN`
+   + ✅ `lambda` 式からクロージャをつくる
+   + ✅ ユーザ関数の定義 `DEFUN`
    + ✅ Special operator `IF`
    + macro `DO`
    + ✅ Tail Call Optimization (TCO)

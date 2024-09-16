@@ -2,28 +2,13 @@
 #include "../environment.h"
 #include <sstream>
 #include <iostream>
+#include <fstream>
 
 namespace my {
-    extern value_t EVAL(value_t ast, EnvPtr env);
-    extern bool value_isTrue(const value_t& value) ;
+extern value_t EVAL(value_t ast, EnvPtr env);
+extern bool value_isTrue(const value_t& value) ;
 
-// ビルトイン関数
-// Function NOT
-value_t do_not(my::EnvPtr args) {
-    my::value_t x = args->find_value("X");
-    return value_isTrue(x) ? my::nilValue : my::trueValue;
-}
-
-// ビルトイン関数
-// 標準出力に出力
-// Function WRITE, PRIN1, PRINT, PPRINT, PRINC
-value_t do_print(my::EnvPtr args) {
-    my::value_t x = args->find_value("X");
-    double v = std::get<double>(x);
-    printf("%f\n", v);
-
-    return my::nilValue;
-}
+extern void setup_functions();
 
 } // namespace my
 
@@ -53,15 +38,20 @@ my::value_t func2(my::EnvPtr args) {
 // (3 6 9)
 void test_lambda()
 {
-    // lambda expr のテスト
+    my::EnvPtr env = std::make_shared<my::Environment>();
+
+    std::ifstream ifs("lambda.lisp", std::ios_base::in | std::ios_base::binary);
+    my::value_t astv = my::READ(ifs);
+    my::value_t res = my::EVAL(astv, env);
+    PRINT(res, std::cout);
 }
 
 int main()
 {
+    my::setup_functions();
+
     define_function("FUNC1", "(x)", func1);
     define_function("FUNC2", "(x)", func2);
-    define_function("NOT", "(x)", my::do_not);
-    define_function("PRINT", "(x)", my::do_print);
 
     icu::UnicodeString ast =
         "(progn "
@@ -70,6 +60,8 @@ int main()
         "   (print x))";
     my::value_t astv = my::read_from_string(ast);
     my::EVAL(astv, my::globalEnv);
+
+    test_lambda();
 
     return 0;
 }

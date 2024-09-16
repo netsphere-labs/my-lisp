@@ -40,13 +40,13 @@ edit_line_test: edit_line_test.o ../edit_line.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
 
-environment_test: environment_test.o ../environment.o ../object_print.o ../reader.o
+environment_test: environment_test.o ../environment.o ../object_print.o ../reader.o ../evaluation.o ../macros.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
-macro_test: macro_test.o ../macros.o ../environment.o ../object_print.o ../reader.o ../evaluation.o
+macro_test: macro_test.o ../macros.o ../environment.o ../object_print.o ../reader.o ../evaluation.o ../builtin-functions.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
-evaluation_test: evaluation_test.o ../evaluation.o ../environment.o ../object_print.o ../reader.o ../macros.o
+evaluation_test: evaluation_test.o ../evaluation.o ../environment.o ../object_print.o ../reader.o ../macros.o ../builtin-functions.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
 
@@ -55,7 +55,7 @@ evaluation_test: evaluation_test.o ../evaluation.o ../environment.o ../object_pr
 ../s_expr.h: ../my_debug.h
 ../environment.o: ../environment.cpp ../environment.h ../s_expr.h
 ../evaluation.o: ../evaluation.cpp ../environment.h ../s_expr.h
-
+../builtin-functions.o: ../builtin-functions.cpp ../environment.h ../s_expr.h
 
 clean:
 	rm -f ../*.o *.o $(TARGETS)

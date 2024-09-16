@@ -17,26 +17,30 @@ icu::UnicodeString function::print() const {
     return "#<FUNCTION " + name() + ">";
 }
 
-// ビルトイン関数の実行
-// @param env 実引数が評価された環境
-value_t function::apply(ListPtr eval_args)
-{
-    EnvPtr inner = bind_arguments(eval_args);
-    return m_handler(inner);
-}
-
 EnvPtr function::bind_arguments(ListPtr eval_args)
 {
-    if (m_params->length() != eval_args->length())
-        throw std::runtime_error("Argument length mismatch");
-
-    EnvPtr inner = std::make_shared<Environment>(m_outer_env); // クロージャの場合
+    // クロージャの場合, 外側の環境を使える
+    EnvPtr inner = std::make_shared<Environment>(m_outer_env);
 
     // 突き合わせしながら環境に登録
-    for (int i = 0; i < m_params->length(); ++i) {
-        std::shared_ptr<symbol> id = VALUE_CAST_CHECKED(symbol, m_params->at(i));
-        inner->set_value(id->name(), eval_args->at(i), false);
+    list::const_iterator p = m_params->begin();
+    list::const_iterator q = eval_args->begin();
+    for ( ; p != m_params->end(); ++p, ++q) {
+        std::shared_ptr<symbol> id = VALUE_CAST_CHECKED(symbol, *p);
+        if (id->name() == "&REST") {
+            if ( (++p) == m_params->end())
+                throw std::runtime_error("&rest param missing");
+            id = VALUE_CAST_CHECKED(symbol, *p);
+            inner->set_value(id->name(), eval_args->sub(q), false);
+            return inner;
+        }
+
+        if (q == eval_args->end())
+            throw std::runtime_error("Argument length short");
+        inner->set_value(id->name(), *q, false);
     }
+    if (q != eval_args->end())
+        throw std::runtime_error("Argument length long");
 
     return inner;
 }

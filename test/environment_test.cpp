@@ -1,5 +1,6 @@
 
 #include "../environment.h"
+#include "../my_debug.h"
 #include <stdio.h>
 #include <iostream>
 
@@ -22,11 +23,13 @@ int main()
     // 呼び出し
     // global env は outer とは無関係
     my::FuncPtr p = env.find_function("HOGE");
+    ASSERT( p != nullptr, "must not nullptr");
+/*
     std::shared_ptr<my::cons> args = std::make_shared<my::cons>();
     args->append(my::value_t(10))
          .append(std::make_shared<my::string>("fuga"));
     my::value_t result = p->apply(args);
     PRINT(result, std::cout);
-
+*/
     return 0;
 }

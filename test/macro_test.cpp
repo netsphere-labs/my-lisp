@@ -7,29 +7,11 @@ namespace my {
 
 extern value_t EVAL(value_t ast, EnvPtr env);
 
-// Function MACROEXPAND, MACROEXPAND-1
-extern value_t macroExpand1(EnvPtr args);
-
 extern void define_macro(const icu::UnicodeString& name,
                          const icu::UnicodeString& params,
                          ListPtr body);
 
-// ビルトイン関数
-value_t do_add(EnvPtr args)
-{
-    value_t x = args->find_value("X");  double xv = std::get<double>(x);
-    value_t y = args->find_value("Y");  double yv = std::get<double>(y);
-
-    return xv + yv;
-}
-
-value_t do_multiply(EnvPtr args)
-{
-    value_t x = args->find_value("X"); double xv = std::get<double>(x);
-    value_t y = args->find_value("Y"); double yv = std::get<double>(y);
-
-    return xv * yv;
-}
+extern void setup_functions();
 
 } // namespace my
 
@@ -71,9 +53,7 @@ void test_expand()
 
 int main()
 {
-    define_function("MACROEXPAND-1", "(form)", my::macroExpand1);
-    define_function("+", "(x y)", my::do_add);
-    define_function("*", "(x y)", my::do_multiply);
+    my::setup_functions();
 
     test_quasiquote();
 
