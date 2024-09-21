@@ -5,7 +5,7 @@
 
 namespace my {
 
-extern value_t EVAL(value_t ast, EnvPtr env);
+extern value_t EVAL1(value_t ast, EnvPtr env);
 
 extern void define_macro(const icu::UnicodeString& name,
                          const icu::UnicodeString& params,
@@ -25,14 +25,14 @@ void test_quasiquote()
     my::value_t form;
     my::value_t res;
     form = my::read_from_string("(setq a 10)");
-    res = my::EVAL(form, env);
+    res = my::EVAL1(form, env);
 
     form = my::read_from_string("(setq b 30)");
-    res = my::EVAL(form, env);
+    res = my::EVAL1(form, env);
 
     form = my::VALUE_CAST_CHECKED(class my::list, my::read_from_string("`(+ ,a (* ,b 3))"));
     my::PRINT(form, std::cout);
-    res = my::EVAL(form, env);
+    res = my::EVAL1(form, env);
     my::PRINT(res, std::cout);
 }
 
@@ -65,7 +65,7 @@ int main()
     // 評価する
     my::EnvPtr env = std::make_shared<my::Environment>();
     my::value_t arg1 = my::read_from_string("(mac1 3 4)");
-    my::value_t result = my::EVAL(arg1, env);
+    my::value_t result = my::EVAL1(arg1, env);
     my::PRINT(result, std::cout);
 
     return 0;

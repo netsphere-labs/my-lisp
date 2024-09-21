@@ -3,9 +3,10 @@
 #include "my_debug.h"
 
 #include <algorithm>
-#include <unicode/unistr.h>
 #include <sstream>
 #include <iostream>
+#include <unicode/unistr.h>
+#include <unicode/ustream.h>
 using namespace icu;
 
 namespace my {
@@ -100,9 +101,12 @@ FuncPtr Environment::find_function(const UnicodeString& symbol)
 void Environment::set_value(const UnicodeString& symbol, const value_t& value,
                             bool constant)
 {
-    std::cout << __func__ << ": "; PRINT(value, std::cout); std::cout << "\n"; // DEBUG
+    std::cout << __func__ << " at " << __LINE__ << ": ";
+    std::cout << symbol << " = " ;
+    PRINT(value, std::cout); std::cout << "\n"; // DEBUG
 
-    m_values.insert(std::make_pair(symbol, BoundValue { .val = value, .constant = constant}));
+    // insert() は更新しない!
+    m_values[symbol] = BoundValue { .val = value, .constant = constant};
 }
 
 void Environment::set_function(const UnicodeString& symbol, FuncPtr func)

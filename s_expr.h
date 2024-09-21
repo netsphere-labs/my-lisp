@@ -278,8 +278,9 @@ public:
     // (car nil)         => NIL
     virtual value_t car() const noexcept = 0;
 
-    // operator [] があるもの
+    // operator [] があるものにする
     typedef std::vector<value_t> Container;
+
     typedef typename Container::const_iterator  const_iterator ;
     typedef typename Container::iterator        iterator ;
 

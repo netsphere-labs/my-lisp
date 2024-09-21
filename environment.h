@@ -6,6 +6,7 @@
 #include <map>
 #include <unicode/unistr.h>
 #include <functional> // std::function
+#include <stack>
 
 namespace my {
 
@@ -129,12 +130,25 @@ public:
     // * (defun fuga (x) (+ x 10))
     void set_function(const icu::UnicodeString& symbol, FuncPtr value);
 
+    void push_block_tag(const icu::UnicodeString& name) {
+        _block_tag.push(name);
+    }
+
     // ローカルと, global environment から探す
     value_t find_value(const icu::UnicodeString& symbol);
 
     // ローカルと, global environment から探す
     // @return 見つからなかったときは nullptr
     FuncPtr find_function(const icu::UnicodeString& symbol);
+
+    void pop_block_tag(const icu::UnicodeString& tag) {
+#ifndef NDEBUG
+        icu::UnicodeString t = _block_tag.top();
+        if (t != tag)
+            throw std::runtime_error("internal error");
+#endif
+        _block_tag.pop();
+    }
 
 private:
     typedef std::map<icu::UnicodeString, BoundValue> ValueMap;
@@ -147,6 +161,8 @@ private:
     FuncMap m_functions;  // 関数またはマクロ
 
     EnvPtr m_outer;
+
+    std::stack<icu::UnicodeString> _block_tag;
 };
 
 extern EnvPtr globalEnv;

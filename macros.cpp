@@ -3,7 +3,7 @@
 
 namespace my {
 
-extern value_t EVAL(value_t ast, EnvPtr env);
+extern value_t EVAL1(value_t ast, EnvPtr env);
 extern value_t eval_atom(const value_t& atom, EnvPtr env);
 
 
@@ -36,7 +36,7 @@ value_t function::expand_macro(ListPtr args)
     }
 
     // ここからマクロ本体を展開
-    return EVAL(m_body, env); // EVAL() 経由で do_quasiquote()
+    return EVAL1(m_body, env); // EVAL() 経由で do_quasiquote()
 }
 
 
@@ -50,7 +50,7 @@ value_t function::expand_macro(ListPtr args)
 //   (macroexpand-1 '(list 1 2))  => (LIST 1 2), NIL
 my::value_t macroExpand1(my::EnvPtr args)
 {
-    // list とは限らない. EVAL() と同様に場合分けしていく
+    // list とは限らない. EVAL1() と同様に場合分けしていく
     value_t ast = args->find_value("FORM");
 
     ListPtr tmpl = OBJECT_CAST<class list>(ast);

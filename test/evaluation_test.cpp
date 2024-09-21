@@ -5,7 +5,7 @@
 #include <fstream>
 
 namespace my {
-extern value_t EVAL(value_t ast, EnvPtr env);
+extern value_t EVAL1(value_t ast, EnvPtr env);
 extern bool value_isTrue(const value_t& value) ;
 
 extern void setup_functions();
@@ -27,7 +27,7 @@ my::value_t func2(my::EnvPtr args) {
     std::cout << __func__ << ": "; PRINT(x, std::cout); std::cout << "\n"; // DEBUG
 
     double v = std::get<double>(x);
-    printf("func2: %f\n", v);
+    printf("func2: %f\n", v);  //=> 30
 
     return x;
 }
@@ -42,8 +42,8 @@ void test_lambda()
 
     std::ifstream ifs("lambda.lisp", std::ios_base::in | std::ios_base::binary);
     my::value_t astv = my::READ(ifs);
-    my::value_t res = my::EVAL(astv, env);
-    PRINT(res, std::cout);
+    my::value_t res = my::EVAL1(astv, env);
+    PRINT(res, std::cout);  //=> (3 33 300)
 }
 
 int main()
@@ -59,7 +59,7 @@ int main()
         "   (if (not x) (func1 x) (let ((x 30)) (func2 x))) "
         "   (print x))";
     my::value_t astv = my::read_from_string(ast);
-    my::EVAL(astv, my::globalEnv);
+    my::EVAL1(astv, my::globalEnv);  //=> 5 外側がイキ.
 
     test_lambda();
 

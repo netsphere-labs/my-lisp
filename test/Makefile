@@ -2,7 +2,7 @@
 .PHONY: all clean
 
 TARGETS = ref_counted_test  reader_test  edit_line_test environment_test \
-    macro_test evaluation_test
+    macro_test evaluation_test block_test
 
 all: $(TARGETS)
 
@@ -49,6 +49,8 @@ macro_test: macro_test.o ../macros.o ../environment.o ../object_print.o ../reade
 evaluation_test: evaluation_test.o ../evaluation.o ../environment.o ../object_print.o ../reader.o ../macros.o ../builtin-functions.o
 	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
+block_test: block_test.o ../evaluation.o ../environment.o ../object_print.o ../reader.o ../macros.o ../builtin-functions.o
+	$(CXX) $^ $(LDFLAGS) $(LDLIBS) -lstdc++ -licuuc -licuio -ledit -o $@
 
 ../reader.o: ../reader.cpp ../s_expr.h 
 ../object_print.o: ../object_print.cpp ../s_expr.h 

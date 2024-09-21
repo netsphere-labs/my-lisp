@@ -5,10 +5,11 @@
 #include "s_expr.h"
 #include "environment.h"
 #include <iostream>
+using namespace icu;
 
 namespace my {
 
-value_t EVAL(value_t ast, EnvPtr env);
+value_t EVAL1(value_t ast, EnvPtr env);
 
 value_t eval_atom(const value_t& atom, EnvPtr env)
 {
@@ -31,30 +32,6 @@ bool value_isTrue(const value_t& value) {
     return true;
 }
 
-static ListPtr make_progn(ListPtr list)
-{
-    std::shared_ptr<cons> progn = std::make_shared<cons>();
-    progn->append(std::make_shared<symbol>("PROGN"));
-    progn->append_range(list);
-    return progn;
-}
-
-
-// ビルトイン関数の実行
-// @param evaled_args 評価された後の実引数のリスト
-value_t function::apply(ListPtr evaled_args)
-{
-    EnvPtr inner = bind_arguments(evaled_args);
-    if (is_builtin())
-        return m_handler(inner);
-
-    return EVAL(make_progn(m_body), inner);
-}
-
-
-/////////////////////////////////////////////////////////////////////////
-// Special Forms
-
 // 相互末尾再帰にも対応する
 // トランポリンについては、例えば
 // https://stackoverflow.com/questions/25228871/how-to-understand-trampoline-in-javascript
@@ -66,14 +43,47 @@ struct Trampoline {
 
     // 値 = AST なので、共用. `MORE` の場合 AST の意味。
     value_t const value;
+
+    // ここが TCO になる
     EnvPtr const innerEnv;
 
     Trampoline(const value_t& val): type(DONE), value(val) { }
-    Trampoline(Type t, const value_t& ast): type(t), value(ast) { }
+
     Trampoline(Type t, const value_t& ast, EnvPtr inner):
         type(t), value(ast), innerEnv(inner) { }
 };
 
+static Trampoline eval1_tco(value_t ast, EnvPtr env);
+
+static Trampoline eval_implicit_progn(ListPtr list, EnvPtr env)
+{
+    int i;
+    for (i = 0; i < list->length() - 1; ++i)
+        EVAL1(list->at(i), env);
+
+    return eval1_tco(list->at(i), env); // TCO
+}
+
+
+// ビルトイン関数の実行
+// @param evaled_args 評価された後の実引数のリスト
+value_t function::apply(ListPtr evaled_args)
+{
+    EnvPtr inner = bind_arguments(evaled_args);
+    if (is_builtin())
+        return m_handler(inner);
+
+    // eval1_tco() 内では, 以下の部分は外出しにする
+    Trampoline t = eval_implicit_progn(m_body, inner);
+    if (t.type == Trampoline::MORE)
+        return EVAL1(t.value, inner);
+    else
+        return t.value;
+}
+
+
+/////////////////////////////////////////////////////////////////////////
+// Special Forms
 
 /** 変数に代入
  setq {pair}* => result
@@ -94,7 +104,7 @@ static Trampoline do_setq(std::shared_ptr<cons> form, EnvPtr env)
     for (int i = 1; i < form->length(); i += 2) {
         std::shared_ptr<symbol> id = VALUE_CAST_CHECKED(symbol, form->at(i));
         // 定数へ代入しようとしてエラーがありうる
-        ret = EVAL(form->at(i + 1), env);
+        ret = EVAL1(form->at(i + 1), env);
         env->set_value(id->name(), ret, false);
     }
 
@@ -110,7 +120,14 @@ static Trampoline do_defun(std::shared_ptr<cons> form, EnvPtr env)
 {
     std::shared_ptr<symbol> name = VALUE_CAST_CHECKED(symbol, form->at(1));
     ListPtr params = VALUE_CAST_CHECKED(class list, form->at(2));
-    ListPtr body = form->sub(3); // an implicit progn.
+
+    // 暗黙の `block` が入る. lambda 式のほうには入らない
+    std::shared_ptr<cons> block = std::make_shared<cons>();
+    block->append(std::make_shared<symbol>("BLOCK"))
+        .append(std::make_shared<symbol>(name->name()))
+        .append_range(form->sub(3));   // an implicit progn.
+    std::shared_ptr<cons> body = std::make_shared<cons>();
+    body->append(block);
 
     FuncPtr func_ptr = std::make_shared<function>(
                                         name->name(), params, body, nullptr);
@@ -146,11 +163,11 @@ static Trampoline do_if(std::shared_ptr<cons> form, EnvPtr env)
     if ( !(form->length() >= 3 && form->length() <= 4) )
         throw std::runtime_error("args error");
 
-    bool isTrue = value_isTrue(EVAL(form->at(1), env));
+    bool isTrue = value_isTrue(EVAL1(form->at(1), env));
     if (!isTrue && form->length() == 3)
         return Trampoline(nilValue);
 
-    return Trampoline(Trampoline::MORE, form->at(isTrue ? 2 : 3)); // TCO
+    return eval1_tco(form->at(isTrue ? 2 : 3), env); // TCO
 }
 
 // 順に評価
@@ -159,11 +176,7 @@ static Trampoline do_progn(std::shared_ptr<cons> form, EnvPtr env)
     if (form->length() == 1)
         return Trampoline(nilValue);
 
-    int i;
-    for (i = 1; i < form->length() - 1; ++i)
-        EVAL(form->at(i), env);
-
-    return Trampoline(Trampoline::MORE, form->at(i)); // TCO
+    return eval_implicit_progn(form->sub(1), env);
 }
 
 static Trampoline do_quote(std::shared_ptr<cons> form, EnvPtr env)
@@ -201,7 +214,7 @@ static Trampoline do_let_star(std::shared_ptr<cons> form, EnvPtr env)
             if (pair->length() != 2)
                 throw std::runtime_error("The LET binding spec is malformed.");
             sym = VALUE_CAST_CHECKED(symbol, pair->at(0));
-            val = EVAL(pair->at(1), is_star ? inner : env);
+            val = EVAL1(pair->at(1), is_star ? inner : env);
         }
         else { // 変数名のみ
             sym = VALUE_CAST_CHECKED(symbol, var);
@@ -211,8 +224,9 @@ static Trampoline do_let_star(std::shared_ptr<cons> form, EnvPtr env)
         inner->set_value(sym->name(), val, false);
     }
 
-    // an implicit progn.
-    return Trampoline(Trampoline::MORE, make_progn(form->sub(2)), inner); // TCO
+    Trampoline ret = eval_implicit_progn(form->sub(2), inner); // TCO
+    std::cout << "LET result = " ; PRINT(ret.value, std::cout); // DEBUG
+    return ret;
 }
 
 // val がリストで，かつ op シンボルか
@@ -232,7 +246,12 @@ std::shared_ptr<cons> starts_with(const value_t& val,
 }
 
 
-// lambda form と (function ...) と共用
+/* lambda form と (function ...) と共用
+lambda form だけ特別扱いされる
+     ((lambda lambda-list . body) . arguments)
+   is semantically equivalent to the function form
+     (funcall #'(lambda lambda-list . body) . arguments)
+*/
 static FuncPtr get_function(const value_t& func_name, EnvPtr env)
 {
     std::cout << __func__ << ": "; PRINT(func_name, std::cout); std::cout << "\n"; // DEBUG
@@ -283,7 +302,7 @@ static value_t do_quasiquote_sub(ListPtr tmpl, EnvPtr env)
         // `,1       => 1
         // `,x       => 変数 X を評価
         // `,(+ 2 3) => 5  リストを評価
-        return EVAL(tmpl->at(1), env);
+        return EVAL1(tmpl->at(1), env);
     }
     else {
         // `,@s はエラー: `,@S is not a well-formed backquote expression
@@ -302,9 +321,9 @@ static value_t do_quasiquote_sub(ListPtr tmpl, EnvPtr env)
         if (sub != nullptr) {
             std::shared_ptr<symbol> op = OBJECT_CAST<symbol>(sub->at(0));
             if (op != nullptr && op->name() == "UNQUOTE")  // ","
-                ret->append(EVAL(sub->at(1), env));
+                ret->append(EVAL1(sub->at(1), env));
             else if (op != nullptr && op->name() == "UNQUOTE-SPLICING") {// ",@"
-                ListPtr lst = VALUE_CAST_CHECKED(class list, EVAL(sub->at(1), env));
+                ListPtr lst = VALUE_CAST_CHECKED(class list, EVAL1(sub->at(1), env));
                 if ( !lst->empty()) // NIL のときは要素削除
                     ret->append_range(lst);
             }
@@ -335,6 +354,46 @@ Trampoline do_quasiquote(std::shared_ptr<cons> form, EnvPtr env)
     return ret;
 }
 
+struct StopIteration : public std::exception
+{
+    StopIteration(const UnicodeString& name, const value_t val):
+        tag(name), ret(val) { }
+
+    UnicodeString tag;
+    value_t ret;
+};
+
+// a structured, lexical, non-local exit facility.
+Trampoline do_block(std::shared_ptr<cons> form, EnvPtr env)
+{
+    // 新しいスコープを導入するわけではない。
+    //EnvPtr inner = std::make_shared<Environment>(env);
+
+    std::shared_ptr<symbol> id = VALUE_CAST_CHECKED(symbol, form->at(1));
+    env->push_block_tag(id->name());
+
+    try {
+        Trampoline t = eval_implicit_progn(form->sub(2), env);
+        env->pop_block_tag(id->name());
+        return t;
+    } catch (StopIteration& ex) {
+        env->pop_block_tag(id->name()); // only exited once.
+        if (ex.tag != id->name() )
+            throw;
+        return ex.ret;
+    }
+}
+
+Trampoline do_return_from(std::shared_ptr<cons> form, EnvPtr env)
+{
+    if (form->length() < 2 || form->length() > 3)
+        throw std::runtime_error("args number error");
+
+    std::shared_ptr<symbol> id = VALUE_CAST_CHECKED(symbol, form->at(1));
+    throw StopIteration(id->name(),
+                        form->length() == 2 ? nilValue : form->at(2) );
+}
+
 
 // Special operator の一覧は仕様で決まっている。後から追加できない。
 //  -- <a href="https://www.lispworks.com/documentation/HyperSpec/Body/03_ababa.htm">3.1.2.1.2.1 Special Forms</a>
@@ -363,8 +422,8 @@ static const SpecialForm specialForms[] = {
     {"LET*", do_let_star},  // `let*` does them sequentially
     //    {"progv", },
     {"SETQ", do_setq},
-    //{"block", },
-    //{"return-from", },
+    {"BLOCK", do_block },
+    {"RETURN-FROM", do_return_from },
     //{"tagbody", },
     //{"catch", },
     //{"throw", },
@@ -392,89 +451,103 @@ static ListPtr eval_args(ListPtr args, EnvPtr env)
 
     std::shared_ptr<cons> ret = std::make_shared<cons>();
     for (auto it = args->begin(); it != args->end(); ++it)
-        ret->append(EVAL(*it, env));
+        ret->append(EVAL1(*it, env));
 
     return ret;
 }
 
 
-/* 関数の実行
-1. lambda form だけ特別扱いされる
-     ((lambda lambda-list . body) . arguments)
-   is semantically equivalent to the function form
-     (funcall #'(lambda lambda-list . body) . arguments)
+// implicit progn が複数の要素だったとき, `PROGN` で括る
+static value_t make_progn(ListPtr list)
+{
+    if (list->length() <= 1)
+        return list->at(0);
 
-2. どのメソッドを呼び出すか、実引数を評価した後に決める
+    std::shared_ptr<cons> progn = std::make_shared<cons>();
+    progn->append(std::make_shared<symbol>("PROGN"));
+    progn->append_range(list);
+    return progn;
+}
+
+
+#ifndef DISABLE_MACRO
+extern value_t macroExpand(EnvPtr args);
+#endif
+
+static Trampoline eval1_tco(value_t ast, EnvPtr env)
+{
+    ListPtr list = OBJECT_CAST<class list>(ast);
+    if (!list || list->empty() )
+        return eval_atom(ast, env);
+
+#ifndef DISABLE_MACRO
+    // CL: special form と同名の関数は禁止.
+    EnvPtr exp_env = std::make_shared<Environment>();
+    exp_env->set_value("FORM", ast, false);
+    ast = macroExpand(exp_env);  // 実引数を評価せずに渡す
+    exp_env.reset();
+#endif
+
+    list = OBJECT_CAST<class list>(ast);
+    if ( !list || list->empty() )
+        return eval_atom(ast, env);
+
+    // From here on down we are evaluating a non-empty list.
+    //std::shared_ptr<cons> args = std::dynamic_pointer_cast<cons>(list);
+    ListPtr evaled;
+    FuncPtr func;
+
+    // First handle the special forms.
+    std::shared_ptr<symbol> sym = OBJECT_CAST<symbol>(list->car());
+    if (sym != nullptr) {
+        icu::UnicodeString special = sym->name();
+        for ( const auto& op : specialForms ) {
+            if (op.name == special)
+                return op.func(std::dynamic_pointer_cast<cons>(list), env);
+        }
+    }
+
+/* どのメソッドを呼び出すか、実引数を評価した後に決める
      1. compute the list of applicable methods
      2. if no method is applicable then signal an error
      3. sort the applicable methods in order of specificity
      4. invoke the most specific method.
 */
 
-extern value_t macroExpand(EnvPtr args);
+    // Now we're left with the case of a regular list to be evaluated.
+    // だいぶ手抜きでいく
+    evaled = eval_args(list->sub(1), env);
+    //std::cout << "args = " ; PRINT(list->sub(1), std::cout); // DEBUG
+    std::cout << "evaled args = " ; PRINT(evaled, std::cout); // DEBUG
 
-value_t EVAL(value_t ast, EnvPtr env)
+    // lambda form だけ特別扱いされる.
+    func = get_function(list->at(0), env);
+    // ここではもう, 元の env は不要
+    if ( func->is_builtin() ) {
+        env = nullptr;
+        return func->apply(evaled);
+    }
+    else {
+        // ここが TCO になる
+        return Trampoline(Trampoline::MORE,
+                          make_progn(func->getBody()),
+                          func->bind_arguments(evaled) ); // innerEnv
+    }
+}
+
+
+value_t EVAL1(value_t ast, EnvPtr env)
 {
     while (true) {
-        //std::cout << "EVAL() loop: "; PRINT(ast, std::cout); std::cout << "\n"; // DEBUG
+        //std::cout << "EVAL1() loop: "; PRINT(ast, std::cout); std::cout << "\n"; // DEBUG
 
-        ListPtr list = OBJECT_CAST<class list>(ast);
-        if (!list || list->empty() )
-            return eval_atom(ast, env);
-
-#ifndef DISABLE_MACRO
-        // CL: special form と同名の関数は禁止.
-        EnvPtr exp_env = std::make_shared<Environment>();
-        exp_env->set_value("FORM", ast, false);
-        ast = macroExpand(exp_env);  // 実引数を評価せずに渡す
-                                      // TODO: 実引数の個数の事前検査?
-        exp_env.reset();
-#endif
-
-        list = OBJECT_CAST<class list>(ast);
-        if ( !list || list->empty() )
-            return eval_atom(ast, env);
-
-        // From here on down we are evaluating a non-empty list.
-        //std::shared_ptr<cons> args = std::dynamic_pointer_cast<cons>(list);
-        ListPtr evaled;
-        FuncPtr func;
-
-        // First handle the special forms.
-        std::shared_ptr<symbol> sym = OBJECT_CAST<symbol>(list->car());
-        if (sym != nullptr) {
-            icu::UnicodeString special = sym->name();
-            for ( const auto& op : specialForms ) {
-                if (op.name == special) {
-                    Trampoline sp_ret = op.func(std::dynamic_pointer_cast<cons>(list), env);
-                    if (sp_ret.type == Trampoline::DONE)
-                        return sp_ret.value;
-                    else { // type == Trampoline::MORE
-                        ast = sp_ret.value; // TCO
-                        if (sp_ret.innerEnv != nullptr)
-                            env = sp_ret.innerEnv;
-                        goto NEXT;
-                    }
-                }
-            }
+        Trampoline t = eval1_tco(ast, env);
+        if (t.type == Trampoline::DONE)
+            return t.value;
+        else { // type == Trampoline::MORE
+            ast = t.value; // TCO
+            env = t.innerEnv;
         }
-
-        // Now we're left with the case of a regular list to be evaluated.
-        // だいぶ手抜きでいく
-        evaled = eval_args(list->sub(1), env);
-        // lambda form だけ特別扱いされる
-        func = get_function(list->at(0), env);
-        // ここではもう, 元の env は不要
-        if ( func->is_builtin() ) {
-            env = nullptr;
-            return func->apply(evaled);
-        }
-        else {
-            env = func->bind_arguments(evaled);
-            ast = make_progn(func->getBody());  // TCO
-        }
-
-    NEXT: ;
     }
 }
 
