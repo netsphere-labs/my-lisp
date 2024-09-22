@@ -44,7 +44,7 @@ struct Trampoline {
     // 値 = AST なので、共用. `MORE` の場合 AST の意味。
     value_t const value;
 
-    // ここが TCO になる
+    // MORE: 次の関数の環境. ここが TCO になる
     EnvPtr const innerEnv;
 
     Trampoline(const value_t& val): type(DONE), value(val) { }
@@ -76,7 +76,7 @@ value_t function::apply(ListPtr evaled_args)
     // eval1_tco() 内では, 以下の部分は外出しにする
     Trampoline t = eval_implicit_progn(m_body, inner);
     if (t.type == Trampoline::MORE)
-        return EVAL1(t.value, inner);
+        return EVAL1(t.value, t.innerEnv);
     else
         return t.value;
 }
