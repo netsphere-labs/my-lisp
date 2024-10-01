@@ -46,7 +46,7 @@ C++17
    + ✅ Special operator `IF`
    + macro `DO`
    
- - Tail Call Optimization (TCO). 実装したがテスト未了
+ - ✅ Tail Call Optimization (TCO). トランポリン trampoline で相互再帰もOK.
  
  - Files
  

@@ -11,7 +11,7 @@
 
 // 不要のときはコメントアウト
 //#define DEBUG_OBJECT_LIFETIMES         1
-#define DEBUG_ENV_LIFETIMES            1
+//#define DEBUG_ENV_LIFETIMES            1
 #define DEBUG_TRACE_FILE    stderr
 
 

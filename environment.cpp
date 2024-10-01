@@ -101,9 +101,9 @@ FuncPtr Environment::find_function(const UnicodeString& symbol)
 void Environment::set_value(const UnicodeString& symbol, const value_t& value,
                             bool constant)
 {
-    std::cout << __func__ << " at " << __LINE__ << ": ";
-    std::cout << symbol << " = " ;
-    PRINT(value, std::cout); std::cout << "\n"; // DEBUG
+    //std::cout << __func__ << " at " << __LINE__ << ": ";
+    //std::cout << symbol << " = " ;
+    //PRINT(value, std::cout); std::cout << "\n"; // DEBUG
 
     // insert() は更新しない!
     m_values[symbol] = BoundValue { .val = value, .constant = constant};
