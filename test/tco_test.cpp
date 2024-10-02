@@ -3,28 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
-
-namespace my {
-extern value_t EVAL1(value_t ast, EnvPtr env);
-extern bool value_isTrue(const value_t& value) ;
-
-extern void setup_functions();
-
-my::value_t do_1minus(my::EnvPtr args) {
-    my::value_t x = args->find_value("X");
-    double v = std::get<double>(x);
-
-    return v - 1;
-}
-
-// @return T or NIL
-my::value_t do_gt(my::EnvPtr args) {
-    double x = std::get<double>(args->find_value("X"));
-    double y = std::get<double>(args->find_value("Y"));
-    return x > y ? trueValue : nilValue;
-}
-
-} // namespace my
+#include "../eval.h"
 
 
 int main()
@@ -32,10 +11,6 @@ int main()
     my::EnvPtr env = std::make_shared<my::Environment>();
 
     my::setup_functions();
-    my::define_function("1-", "(x)", my::do_1minus);
-    my::define_function(">", "(x y)", my::do_gt);
-    my::globalEnv->set_value("T", my::trueValue, true);
-    my::globalEnv->set_value("NIL", my::nilValue, true);
 
     // 偶数 = true
     icu::UnicodeString ast = "(defun iseven (n) (if (> n 0) (isodd (1- n)) t))";

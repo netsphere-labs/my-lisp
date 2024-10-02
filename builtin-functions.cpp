@@ -73,6 +73,20 @@ value_t do_multiply(EnvPtr args)
     return xv * yv;
 }
 
+my::value_t do_1minus(my::EnvPtr args) {
+    my::value_t x = args->find_value("X");
+    double v = std::get<double>(x);
+
+    return v - 1;
+}
+
+// @return T or NIL
+my::value_t do_gt(my::EnvPtr args) {
+    double x = std::get<double>(args->find_value("X"));
+    double y = std::get<double>(args->find_value("Y"));
+    return x > y ? trueValue : nilValue;
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // <function>
@@ -112,12 +126,17 @@ static const BuiltinFunc funcs[] = {
     // <number>
     {"+", "(x y)", my::do_add },
     {"*", "(x y)", my::do_multiply },
+    {"1-", "(x)", my::do_1minus },
+    {">", "(x y)", my::do_gt },
     // <function>
     {"MAPCAR", "(func list)", do_mapcar },
 };
 
 void setup_functions()
 {
+    my::globalEnv->set_value("T", my::trueValue, true);
+    my::globalEnv->set_value("NIL", my::nilValue, true);
+
     for (const auto& f : funcs)
         define_function(f.name, f.params, f.func);
 }

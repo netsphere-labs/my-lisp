@@ -2,18 +2,7 @@
 // マクロのテスト
 #include "../environment.h"
 #include <iostream>
-
-namespace my {
-
-extern value_t EVAL1(value_t ast, EnvPtr env);
-
-extern void define_macro(const icu::UnicodeString& name,
-                         const icu::UnicodeString& params,
-                         ListPtr body);
-
-extern void setup_functions();
-
-} // namespace my
+#include "../eval.h"
 
 
 // quasiquote の呼び出し

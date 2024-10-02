@@ -3,14 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
-
-namespace my {
-extern value_t EVAL1(value_t ast, EnvPtr env);
-extern bool value_isTrue(const value_t& value) ;
-
-extern void setup_functions();
-
-} // namespace my
+#include "../eval.h"
 
 
 my::value_t func1(my::EnvPtr args) {

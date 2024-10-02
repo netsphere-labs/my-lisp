@@ -35,7 +35,7 @@ No direct slots.
 */
 class object //: public RefCounted
 {
-protected:
+public:
     object() {
         TRACE_OBJECT("Creating object %p\n", this);
     }
@@ -55,7 +55,7 @@ protected:
     // 数値には function =, 文字には char=, 文字列には string= 関数を使え.
     //bool isEqualTo(const malValue* rhs) const;
 public:
-    virtual icu::UnicodeString print() const = 0;
+    virtual icu::UnicodeString print() const ;
     virtual void write_indented(std::ostream& out, int level) const ;
 };
 
@@ -144,7 +144,7 @@ typedef std::variant< bool, int64_t, double, ObjectPtr > value_t;
 extern bool value_isa(const value_t& , const icu::UnicodeString& klass);
 
 extern const std::shared_ptr<class null> nilValue;
-extern const std::shared_ptr<class symbol> trueValue;
+extern const std::shared_ptr<class object> trueValue;
 
 extern value_t READ(std::istream& stream);
 extern value_t read_from_string(const icu::UnicodeString& str);

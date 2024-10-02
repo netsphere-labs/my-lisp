@@ -9,7 +9,7 @@ namespace my {
 
 // TODO: 定数リストに格納
 const std::shared_ptr<null> nilValue = std::make_shared<null>();
-const std::shared_ptr<symbol> trueValue = std::make_shared<symbol>("T");
+const std::shared_ptr<object> trueValue = std::make_shared<object>();
 
 
 static void indent(std::ostream& out, int level) {
@@ -24,6 +24,10 @@ void object::write_indented(std::ostream& out, int level) const {
     indent(out, level);
     UnicodeString s = print();
     out << s;
+}
+
+UnicodeString object::print() const {
+    return "T";
 }
 
 ////////////////////////////////////////////////////////
@@ -138,10 +142,14 @@ void cons::write_indented(std::ostream& out, int level) const
         throw std::out_of_range("empty");
 
     WriteVisitor v = WriteVisitor(out, level + 1);
+    PrintVisitor p = PrintVisitor();
 
-    indent(out, level); out << "(\n";
+    indent(out, level); out << "(";
     for (auto i = list_.begin(); i != list_.end(); ++i) {
-        std::visit(v, *i);
+        if (i == list_.begin())
+            out << std::visit(p, *i);
+        else
+            std::visit(v, *i);
         out << '\n';
     }
 
