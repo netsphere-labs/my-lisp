@@ -1,13 +1,9 @@
 
 # my-lisp -- A small Lisp interpreter
 
-非常に小さな Lisp インタプリタ。
-
-参考:
-<a href="https://github.com/kanaka/mal/blob/master/process/guide.md">The Make-A-Lisp Process</a>
-ただ, MAL は Clojure に近く、Lisp らしい感じとは若干異なる。
-
-Common Lisp か Scheme が有力。とりあえず Common Lisp のサブセットを実装。S式の構築部分だけ, 独立して使える。
+非常に小さな Lisp インタプリタ。Common Lisp か Scheme が有力。
+ - とりあえず Common Lisp のサブセットを実装。
+ - S式の構築部分だけ, 独立して使える。
 
 C++17
  - `variant` で数値は特別扱い
@@ -21,7 +17,7 @@ C++17
 
  - REPL Read-Eval-Print-Loop
    + ✅ GNU Readline はライセンスが GPLv3 なので使えない。libedit-devel を利用
-   + `repl()`, `main()`
+   + ✅ `repl()`, `main()`
      
  - Reader, Print  -- ファイルからの読み込み `READ()` 関数, S式の構築、画面への表示 `PRINT()` 関数. 文法をユーザが拡張できるので, bison/flex は使えない。手書き。
    + ✅ Standard Macro Characters
@@ -108,4 +104,21 @@ Common Lisp は, クラス名に `-` を含まなければ `P` を, そうでな
 |hash-table-p    |            |HASH-TABLE    |                                |
 |pathnamep       |            |PATHNAME      |                                |
 |                |bytevector? |              |                                |
+
+
+
+## 参考
+
+<a href="https://github.com/kanaka/mal/blob/master/process/guide.md">The Make-A-Lisp Process</a>
+ただ, MAL は Clojure に近く、Lisp らしい感じとは若干異なる。
+
+
+そのほか興味深い:
+
+<a href="https://github.com/seven1m/malcc/">seven1m/malcc: Mal (Make A Lisp) Compiler in C</a>
+Lisp を C言語にコンパイル。後は gcc でバイナリを作れる。
+
+そのままではビルドに失敗する。`__malloc_hook` undeclared. 組み込みの tinycc を `dev` ブランチに切り替えてやれば動く。
+
+出力されるCのソースは, それぞれの関数末尾で継続を返すスタイルになっている。
 
