@@ -125,10 +125,15 @@ Common Lisp は, クラス名に `-` を含まなければ `P` を, そうでな
 
 そのほか興味深い:
 
-<a href="https://github.com/seven1m/malcc/">seven1m/malcc: Mal (Make A Lisp) Compiler in C</a>
+#### <a href="https://github.com/seven1m/malcc/">seven1m/malcc: Mal (Make A Lisp) Compiler in C</a>
 Lisp を C言語にコンパイル。後は gcc でバイナリを作れる。
 
 そのままではビルドに失敗する。`__malloc_hook` undeclared. 組み込みの tinycc を `dev` ブランチに切り替えてやれば動く。
 
 出力されるCのソースは, それぞれの関数末尾で継続を返すスタイルになっている。
+
+#### <a href="https://github.com/rui314/minilisp/">rui314/minilisp: A readable lisp in less than 1k lines of C</a>
+
+1,000行に満たないのに GC 付き。すごい。
+
 
